@@ -1,4 +1,4 @@
-name: Boxwrite Build EXE (Final Debug)
+name: Boxwrite Build EXE (With Icon)
 on:
   push:
     branches: [ main ]
@@ -15,53 +15,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 🔍 步骤1：强制打印根目录，再次确认文件存在（心理安慰）
-      - name: Verify File Existence
-        run: |
-          echo "===== Listing Root Directory ====="
-          dir
-          echo "===== Checking main.py ====="
-          if exist main.py (echo main.py FOUND!) else (echo main.py MISSING!)
-        shell: cmd
-
-      # 🔧 步骤2：设置 Python 环境
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 📦 步骤3：安装依赖（含容错处理）
-      - name: Install Dependencies
+      - name: Install Dependencies (None)
         run: |
           python -m pip install --upgrade pip
+          # 因为是内置库，这里只需安装 PyInstaller，无需执行 requirements.txt
           pip install pyinstaller
-          if exist requirements.txt (
-            echo Installing requirements...
-            pip install -r requirements.txt
-          ) else (
-            echo No requirements.txt found, skipping...
-          )
         shell: cmd
 
-      # 🐍 步骤4：核心诊断——先运行 main.py 看是否报错
-      - name: Test main.py Runtime
-        id: runtime_test
+      - name: Clean old builds
         run: |
-          echo "===== Testing main.py ====="
-          python main.py
+          if exist dist rmdir /s /q dist
+          if exist build rmdir /s /q build
+          if exist *.spec del /f /q *.spec
         shell: cmd
-        continue-on-error: true # 允许这里报错，继续看日志
 
-      # 🏗️ 步骤5：如果运行测试失败，直接查看打包日志
-      - name: Build EXE (With Debug Log)
+      - name: Build EXE with Custom Icon
         run: |
-          pyinstaller --onefile --clean --log-level=DEBUG main.py
+          # 核心命令：--icon 指定图标路径
+          # 假设你上传的图标文件叫 icon.ico
+          pyinstaller --onefile --clean --icon=icon.ico main.py
         shell: cmd
 
-      # 📤 步骤6：上传产物
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
-          name: boxwrite-exe
+          name: boxwrite-exe-icon
           path: dist/*.exe
           if-no-files-found: error
