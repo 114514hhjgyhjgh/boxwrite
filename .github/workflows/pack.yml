@@ -1,5 +1,4 @@
-name: Build exe with PyInstaller
-
+name: PyInstaller Build EXE (v4 Actions)
 on:
   push:
     branches: [ main ]
@@ -8,25 +7,40 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true  # 防止并发导致文件锁
     steps:
-      - uses: actions/checkout@v3
+      # 升级到 v4：检出代码
+      - name: Checkout code (v4)
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      # 升级到 v5：设置 Python（v5 是当前最新稳定版）
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt || echo 'no requirements'
+          python -m pip install --upgrade pip
           pip install pyinstaller
+          pip install -r requirements.txt
 
-      - name: Build exe
+      - name: Clean old build artifacts
         run: |
-          pyinstaller main.py --onefile
+          if (Test-Path dist) { Remove-Item -Recurse -Force dist }
+          if (Test-Path build) { Remove-Item -Recurse -Force build }
+          if (Test-Path *.spec) { Remove-Item *.spec }
 
-      - name: Upload artifact
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller --onefile --clean main.py
+
+      # 升级到 v4：上传 EXE 产物
+      - name: Upload EXE artifact (v4)
         uses: actions/upload-artifact@v4
         with:
-          name: exe-file
-          path: dist/main.exe
+          name: my-exe-build
+          path: dist/*.exe
+          if-no-files-found: error  # 没打包出 EXE 就直接报错，方便排查
