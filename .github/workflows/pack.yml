@@ -1,4 +1,4 @@
-name: PyInstaller Build EXE (v4 Actions)
+name: PyInstaller Build EXE (v4 Actions + Node.js 24)
 on:
   push:
     branches: [ main ]
@@ -9,13 +9,14 @@ jobs:
     runs-on: windows-latest
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true  # 防止并发导致文件锁
+      cancel-in-progress: true
+    env:
+      # 临时启用 Node.js 24，消除弃用警告
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      # 升级到 v4：检出代码
       - name: Checkout code (v4)
         uses: actions/checkout@v4
 
-      # 升级到 v5：设置 Python（v5 是当前最新稳定版）
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -36,11 +37,13 @@ jobs:
       - name: Build EXE with PyInstaller
         run: |
           pyinstaller --onefile --clean main.py
+        # 增加日志输出，方便排查 exit code 1
+        shell: cmd
+        continue-on-error: false
 
-      # 升级到 v4：上传 EXE 产物
       - name: Upload EXE artifact (v4)
         uses: actions/upload-artifact@v4
         with:
           name: my-exe-build
           path: dist/*.exe
-          if-no-files-found: error  # 没打包出 EXE 就直接报错，方便排查
+          if-no-files-found: error
