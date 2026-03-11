@@ -1,4 +1,4 @@
-name: PyInstaller Build EXE (v4 Actions + Node.js 24)
+name: Boxwrite Build EXE (Final Debug)
 on:
   push:
     branches: [ main ]
@@ -11,39 +11,57 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
     env:
-      # 临时启用 Node.js 24，消除弃用警告
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - name: Checkout code (v4)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
+      # 🔍 步骤1：强制打印根目录，再次确认文件存在（心理安慰）
+      - name: Verify File Existence
+        run: |
+          echo "===== Listing Root Directory ====="
+          dir
+          echo "===== Checking main.py ====="
+          if exist main.py (echo main.py FOUND!) else (echo main.py MISSING!)
+        shell: cmd
+
+      # 🔧 步骤2：设置 Python 环境
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      # 📦 步骤3：安装依赖（含容错处理）
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          pip install -r requirements.txt
-
-      - name: Clean old build artifacts
-        run: |
-          if (Test-Path dist) { Remove-Item -Recurse -Force dist }
-          if (Test-Path build) { Remove-Item -Recurse -Force build }
-          if (Test-Path *.spec) { Remove-Item *.spec }
-
-      - name: Build EXE with PyInstaller
-        run: |
-          pyinstaller --onefile --clean main.py
-        # 增加日志输出，方便排查 exit code 1
+          if exist requirements.txt (
+            echo Installing requirements...
+            pip install -r requirements.txt
+          ) else (
+            echo No requirements.txt found, skipping...
+          )
         shell: cmd
-        continue-on-error: false
 
-      - name: Upload EXE artifact (v4)
+      # 🐍 步骤4：核心诊断——先运行 main.py 看是否报错
+      - name: Test main.py Runtime
+        id: runtime_test
+        run: |
+          echo "===== Testing main.py ====="
+          python main.py
+        shell: cmd
+        continue-on-error: true # 允许这里报错，继续看日志
+
+      # 🏗️ 步骤5：如果运行测试失败，直接查看打包日志
+      - name: Build EXE (With Debug Log)
+        run: |
+          pyinstaller --onefile --clean --log-level=DEBUG main.py
+        shell: cmd
+
+      # 📤 步骤6：上传产物
+      - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
-          name: my-exe-build
+          name: boxwrite-exe
           path: dist/*.exe
           if-no-files-found: error
